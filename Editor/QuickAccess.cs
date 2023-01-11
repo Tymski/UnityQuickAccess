@@ -74,6 +74,7 @@ public class QuickAccessWindow : EditorWindow
 
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
         {
+            Close();
             UnityEngine.Object asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sortedAssets[0]);
             if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
             else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
@@ -91,7 +92,7 @@ public class QuickAccessWindow : EditorWindow
 
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.W && Event.current.control)
         {
-            this.Close();
+            Close();
         }
 
         float searchResultHeight = 18;
@@ -146,13 +147,13 @@ public class QuickAccessWindow : EditorWindow
             Selection.activeObject = assetObject;
         }
         GUILayout.Space(-5);
-        if (GUILayout.Button(ColorNameToType(asset, assetObject), style, GUILayout.Height(rowHeight - 2), GUILayout.Width(280)))
+        if (GUILayout.Button(ColorNameToType(asset, assetObject), style, GUILayout.Height(rowHeight), GUILayout.Width(280)))
         {
             Debug.Log(assetObject.GetType());
             Selection.activeObject = assetObject;
         }
         GUILayout.Space(-5);
-        if (GUILayout.Button(ColorFileNameWithPath(asset), style, GUILayout.Height(rowHeight - 2)))
+        if (GUILayout.Button(ColorFileNameWithPath(asset), style, GUILayout.Height(rowHeight)))
         {
             Selection.activeObject = assetObject;
         }
@@ -237,10 +238,9 @@ public class QuickAccessWindow : EditorWindow
         for (int i = 0; i < guids.Length; i++)
         {
             string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
-            if (assetPath.Contains(path))
-            {
-                assets[i] = assetPath;
-            }
+            if (!Contains(assetPath, path)) continue;
+            assets[i] = assetPath;
+
         }
 
         sortedAssets = assets.Where(s => s != null).OrderBy(s => MyDistance(query, What(s))).ToList();
@@ -252,6 +252,16 @@ public class QuickAccessWindow : EditorWindow
             if (query.Contains("/")) return path;
             if (query.Contains(".")) return Path.GetFileName(path);
             return Path.GetFileNameWithoutExtension(path);
+        }
+
+        bool Contains(string assetPath, string s)
+        {
+            string[] split = s.Split(',');
+            for (int j = 0; j < split.Length; j++)
+            {
+                if (!assetPath.Contains(split[j].Trim())) return false;
+            }
+            return true;
         }
     }
 
