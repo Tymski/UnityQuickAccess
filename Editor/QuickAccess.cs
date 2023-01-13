@@ -8,13 +8,24 @@ using UnityEngine;
 
 public class QuickAccessWindow : EditorWindow
 {
-    private string path = "";
-    private string query = "";
+    static string queryKey = "";
+    static string pathKey = "";
+
+    static GUIStyle cachedStyle;
+    static GUIStyle rowEven;
+    static GUIStyle rowOdd;
+    static GUIStyle selectedStyle;
+
+    string path = "";
+    string query = "";
     string queryOld = "";
-    private Vector2 scrollPosition;
+    Vector2 scrollPosition;
     string prevQuery = "";
     string prevPath = "";
     static bool focusQuery;
+    int row = 0;
+    int selected = 0;
+    List<string> sortedAssets = new();
 
     Dictionary<Type, string> typeColors = new()
     {
@@ -29,15 +40,11 @@ public class QuickAccessWindow : EditorWindow
         QuickAccessWindow window = GetWindow<QuickAccessWindow>("QuickAccess");
         window.Focus();
         focusQuery = true;
+        queryKey = "unity_" + Application.productName + "_com.tymski.quickaccess.query";
+        pathKey = "unity_" + Application.productName + "_com.tymski.quickaccess.path";
     }
 
-    private List<string> sortedAssets = new();
-
-    private static GUIStyle cachedStyle;
-    private static GUIStyle rowEven;
-    private static GUIStyle rowOdd;
-
-    private Texture2D MakeTex(int width, int height, Color col)
+    Texture2D MakeTex(int width, int height, Color col)
     {
         Color[] pix = new Color[width * height];
 
@@ -51,49 +58,21 @@ public class QuickAccessWindow : EditorWindow
         return result;
     }
 
-    private void OnGUI()
+    void OnGUI()
     {
-        if (cachedStyle == null)
-        {
-            cachedStyle = new GUIStyle(GUI.skin.label);
-            //cachedStyle.normal.textColor = Color.black;
-            cachedStyle.alignment = TextAnchor.MiddleLeft;
-            cachedStyle.richText = true;
-            rowOdd = new(cachedStyle);
-            rowEven = new(cachedStyle);
-            rowOdd.normal.background = MakeTex(1, 1, new Color(0.21f, 0.21f, 0.21f));
-            rowEven.normal.background = MakeTex(1, 1, new Color(0.235f, 0.235f, 0.235f));
-        }
+        //Debug.Log("Current event detected: " + Event.current.type + " " + Event.current.keyCode);
+
+        InitializeStyles();
+
+        HandleInput1();
 
         GUI.SetNextControlName("Path");
+        EditorGUIUtility.labelWidth = 35;
         path = EditorGUILayout.TextField("Path", path);
         GUI.SetNextControlName("Query");
         query = EditorGUILayout.TextField("Query", query);
+        EditorGUIUtility.labelWidth = 0;
 
-
-
-        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
-        {
-            Close();
-            UnityEngine.Object asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sortedAssets[0]);
-            if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
-            else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
-            else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[0]);
-        }
-
-        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Q && Event.current.control)
-        {
-            EditorGUI.FocusTextInControl("Query");
-        }
-        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.E && Event.current.control)
-        {
-            EditorGUI.FocusTextInControl("Path");
-        }
-
-        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.W && Event.current.control)
-        {
-            Close();
-        }
 
         float searchResultHeight = 18;
         float totalHeight = searchResultHeight * sortedAssets.Count;
@@ -108,38 +87,24 @@ public class QuickAccessWindow : EditorWindow
 
         EditorGUILayout.EndScrollView();
 
+        HandleInput2();
+
         if (focusQuery)
         {
             EditorGUI.FocusTextInControl("Query");
             focusQuery = false;
         }
     }
-    int row = 0;
 
-    //private void DisplaySearchResultRow(string asset, int rowIndex, float rowHeight)
-    //{
-    //    Texture2D icon = AssetDatabase.GetCachedIcon(asset) as Texture2D;
 
-    //    GUILayout.BeginHorizontal();
-    //    if (GUILayout.Button(icon, GUIStyle.none, GUILayout.Width(rowHeight), GUILayout.Height(rowHeight)))
-    //    {
-    //        Selection.activeObject = AssetDatabase.LoadAssetAtPath(asset, typeof(UnityEngine.Object));
-    //    }
-    //    GUILayout.Space(-5);
-    //    if (GUILayout.Button(ColorFileName(asset), cachedStyle, GUILayout.Height(rowHeight - 2)))
-    //    {
-    //        Selection.activeObject = AssetDatabase.LoadAssetAtPath(asset, typeof(UnityEngine.Object));
-    //    }
-    //    GUILayout.EndHorizontal();
-    //}
-
-    private void DisplaySearchResultRow(string asset, int rowIndex, float rowHeight)
+    void DisplaySearchResultRow(string asset, int rowIndex, float rowHeight)
     {
         Texture2D icon = AssetDatabase.GetCachedIcon(asset) as Texture2D;
 
         UnityEngine.Object assetObject = AssetDatabase.LoadAssetAtPath(asset, typeof(UnityEngine.Object));
         if (assetObject == null) return;
         GUIStyle style = row++ % 2 == 0 ? rowEven : rowOdd;
+        if (rowIndex == selected) style = selectedStyle;
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button(icon, GUIStyle.none, GUILayout.Width(rowHeight), GUILayout.Height(rowHeight)))
@@ -158,13 +123,68 @@ public class QuickAccessWindow : EditorWindow
             Selection.activeObject = assetObject;
         }
         GUILayout.EndHorizontal();
-        //GUI.color = Color.black;
-        //GUILayout.Box("", GUILayout.ExpandWidth(true), GUILayout.Height(1));
-        //GUI.color = Color.white;
+    }
+
+    void HandleInput1()
+    {
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.DownArrow)
+        {
+            selected++;
+            Event.current.Use();
+            Repaint();
+        }
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.UpArrow)
+        {
+            selected--;
+            selected = Mathf.Max(selected, 0);
+            Event.current.Use();
+            Repaint();
+        }
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
+        {
+            Close();
+            UnityEngine.Object asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sortedAssets[selected]);
+            if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
+            else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
+            else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[selected]);
+        }
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.W && Event.current.control)
+        {
+            Close();
+            Event.current.Use();
+        }
+    }
+
+    void HandleInput2()
+    {
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Q && Event.current.control)
+        {
+            EditorGUI.FocusTextInControl("Query");
+        }
+
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.E && Event.current.control)
+        {
+            EditorGUI.FocusTextInControl("Path");
+        }
+    }
+
+    void InitializeStyles()
+    {
+        if (cachedStyle != null) return;
+
+        cachedStyle = new GUIStyle(GUI.skin.label);
+        cachedStyle.alignment = TextAnchor.MiddleLeft;
+        cachedStyle.richText = true;
+        rowOdd = new(cachedStyle);
+        rowEven = new(cachedStyle);
+        selectedStyle = new(cachedStyle);
+        rowOdd.normal.background = MakeTex(1, 1, new Color(0.21f, 0.21f, 0.21f));
+        rowEven.normal.background = MakeTex(1, 1, new Color(0.235f, 0.235f, 0.235f));
+        selectedStyle.normal.background = MakeTex(1, 1, new Color(0.25f, 0.25f, 0.535f));
     }
 
 
-    private void Update()
+    void Update()
     {
         if (query != prevQuery)
         {
@@ -178,7 +198,7 @@ public class QuickAccessWindow : EditorWindow
         }
     }
 
-    private string ColorFileNameWithPath(string filePath)
+    string ColorFileNameWithPath(string filePath)
     {
         string fileName = Path.GetFileNameWithoutExtension(filePath);
         string directoryName = Path.GetDirectoryName(filePath);
@@ -187,7 +207,7 @@ public class QuickAccessWindow : EditorWindow
         return "<color=grey>" + directoryName + "\\</color><color=white>" + BoldMatchingLetters(fileName, queryOld) + "</color>" + fileExtension;
     }
 
-    private string ColorNameToType(string filePath, UnityEngine.Object asset)
+    string ColorNameToType(string filePath, UnityEngine.Object asset)
     {
         string result = "";
         if (typeColors.ContainsKey(asset.GetType())) result = "<color=" + typeColors[asset.GetType()] + ">";
@@ -196,7 +216,7 @@ public class QuickAccessWindow : EditorWindow
         return result;
     }
 
-    private string BoldMatchingLetters(string filePath, string search)
+    string BoldMatchingLetters(string filePath, string search)
     {
         string fileName = Path.GetFileNameWithoutExtension(filePath);
         string directoryName = Path.GetDirectoryName(filePath);
@@ -229,8 +249,9 @@ public class QuickAccessWindow : EditorWindow
     }
 
     int count = 0;
-    private void Search()
+    void Search()
     {
+        selected = 0;
         queryOld = query;
         string[] guids = AssetDatabase.FindAssets("");
         string[] assets = new string[guids.Length];
@@ -250,6 +271,7 @@ public class QuickAccessWindow : EditorWindow
         string What(string path)
         {
             if (query.Contains("/")) return path;
+            if (query.Contains("\\")) return path;
             if (query.Contains(".")) return Path.GetFileName(path);
             return Path.GetFileNameWithoutExtension(path);
         }
@@ -265,165 +287,18 @@ public class QuickAccessWindow : EditorWindow
         }
     }
 
-    public static int LevenshteinDistance(string s, string t)
-    {
-        if (s == t) return 0;
-        if (s.Length == 0) return t.Length;
-        if (t.Length == 0) return s.Length;
-        int[,] d = new int[s.Length + 1, t.Length + 1];
-        for (int i = 0; i <= s.Length; i++) d[i, 0] = i;
-        for (int j = 0; j <= t.Length; j++) d[0, j] = j;
-        for (int i = 1; i <= s.Length; i++)
-        {
-            for (int j = 1; j <= t.Length; j++)
-            {
-                int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-                d[i, j] = Math.Min(
-                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                    d[i - 1, j - 1] + cost);
-            }
-        }
-        return d[s.Length, t.Length];
-    }
-
-    public static int DamerauLevenshteinDistance(string s, string t)
-    {
-        int n = s.Length;
-        int m = t.Length;
-        int[,] d = new int[n + 1, m + 1];
-
-        for (int i = 0; i <= n; i++) d[i, 0] = i;
-        for (int j = 0; j <= m; j++) d[0, j] = j;
-
-        for (int i = 1; i <= n; i++)
-        {
-            for (int j = 1; j <= m; j++)
-            {
-                int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-
-                d[i, j] = Math.Min(
-                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                    d[i - 1, j - 1] + cost);
-
-                if (i > 1 && j > 1 && s[i - 1] == t[j - 2] && s[i - 2] == t[j - 1])
-                {
-                    d[i, j] = Math.Min(d[i, j], d[i - 2, j - 2] + cost);
-                }
-            }
-        }
-        return d[n, m];
-    }
-
-    public static double JaroDistance(string s1, string s2)
-    {
-        int m = 0;
-        int t = 0;
-
-        int s1Length = s1.Length;
-        int s2Length = s2.Length;
-
-        if (s1Length == 0 && s2Length == 0) return 1.0;
-
-        int range = Math.Max(0, Math.Max(s1Length, s2Length) / 2 - 1);
-
-        bool[] s1Matches = new bool[s1Length];
-        bool[] s2Matches = new bool[s2Length];
-
-        for (int i = 0; i < s1Length; i++)
-        {
-            int start = Math.Max(0, i - range);
-            int end = Math.Min(i + range + 1, s2Length);
-
-            for (int j = start; j < end; j++)
-            {
-                if (s1Matches[i] || s2Matches[j]) continue;
-                if (s1[i] != s2[j]) continue;
-
-                s1Matches[i] = true;
-                s2Matches[j] = true;
-                m++;
-                break;
-            }
-        }
-
-        if (m == 0) return 0.0;
-
-        int k = 0;
-        for (int i = 0; i < s1Length; i++)
-        {
-            if (!s1Matches[i]) continue;
-            while (!s2Matches[k]) k++;
-            if (s1[i] != s2[k]) t++;
-            k++;
-        }
-
-        return (m / (double)s1Length + m / (double)s2Length + (m - t / 2.0) / m) / 3.0;
-    }
-
-    //public static float MyDistance(string s1, string s2)
-    //{
-    //    float distance = 0;
-
-    //    for (int i = 0; i < s1.Length; i++)
-    //    {
-    //        char c = s1[i];
-    //        int index = s2.IndexOf(c);
-    //        if (index < 0)
-    //        {
-    //            distance += 100;
-    //        }
-    //        else
-    //        {
-    //            distance += index;
-    //            if (char.IsUpper(s2[index]))
-    //            {
-    //                distance -= 10;
-    //            }
-    //        }
-    //    }
-    //    Debug.Log("Distance from " + s1 + " to " + s2 + " is " + distance);
-
-    //    return distance;
-    //}
-
-    //public static float MyDistance(string s1, string s2)
-    //{
-    //    float distance = 0;
-    //    int lastIndex = -1;
-
-    //    for (int i = 0; i < s1.Length; i++)
-    //    {
-    //        char c = s1[i];
-    //        int index = s2.IndexOf(c, lastIndex + 1);
-    //        if (index < 0)
-    //        {
-    //            distance += 100;
-    //        }
-    //        else
-    //        {
-    //            distance += index;
-    //            if (char.IsUpper(s2[index]))
-    //            {
-    //                distance -= 10;
-    //            }
-    //            lastIndex = index;
-    //        }
-    //    }
-
-    //    Debug.Log("Distance from " + s1 + " to " + s2 + " is " + distance);
-    //    return distance;
-    //}
-
     public static float MyDistance(string s1, string s2)
     {
-        s1 = s1.ToLowerInvariant();
         float distance = 0;
         int lastIndex = -1;
 
         for (int i = 0; i < s1.Length; i++)
         {
             char c = s1[i];
-            int index = s2.IndexOf(c.ToString(), lastIndex + 1, comparisonType: StringComparison.OrdinalIgnoreCase);
+            int index = 0;
+            if (char.IsLower(c)) index = s2.IndexOf(c.ToString(), lastIndex + 1, comparisonType: StringComparison.OrdinalIgnoreCase);
+            else index = s2.IndexOf(c.ToString(), lastIndex + 1, comparisonType: StringComparison.Ordinal);
+
             if (index < 0)
             {
                 distance += 100;
@@ -433,6 +308,7 @@ public class QuickAccessWindow : EditorWindow
             else
             {
                 distance += index - lastIndex;
+                if (char.IsUpper(c) && char.IsUpper(s2[index])) distance -= 1;
                 if (char.IsUpper(s2[index]))
                 {
                     distance -= 15;
@@ -446,7 +322,6 @@ public class QuickAccessWindow : EditorWindow
         if (s1.CompareTo(s2) == 0) distance -= 50;
         if (s1.Length > 0 && s2.Length > 0 && s1[0].CompareTo(s2[0]) == 0) distance -= 16;
 
-        //Debug.Log("Distance from " + s1 + " to " + s2 + " is " + distance);
         return distance;
     }
 
@@ -461,8 +336,5 @@ public class QuickAccessWindow : EditorWindow
         path = EditorPrefs.GetString(pathKey, "");
         query = EditorPrefs.GetString(queryKey, "");
     }
-
-    string queryKey = "com.tymski.quickaccess.path";
-    string pathKey = "com.tymski.quickaccess.query";
 }
 
