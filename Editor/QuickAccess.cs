@@ -168,10 +168,12 @@ public class QuickAccessWindow : EditorWindow
         }
     }
 
+    bool initialized;
     void InitializeStyles()
     {
-        if (cachedStyle != null) return;
+        if (initialized) return;
 
+        initialized = true;
         cachedStyle = new GUIStyle(GUI.skin.label);
         cachedStyle.alignment = TextAnchor.MiddleLeft;
         cachedStyle.richText = true;
