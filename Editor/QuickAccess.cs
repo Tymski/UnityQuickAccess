@@ -152,6 +152,11 @@ public class QuickAccessWindow : EditorWindow
             Close();
             Event.current.Use();
         }
+        if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
+        {
+            Close();
+            Event.current.Use();
+        }
     }
 
     void HandleInput2()
