@@ -60,9 +60,8 @@ public class QuickAccessWindow : EditorWindow
 
     void OnGUI()
     {
-        //Debug.Log("Current event detected: " + Event.current.type + " " + Event.current.keyCode);
-
         InitializeStyles();
+        if (rowOdd.normal.background == null) CreateBackgroundTextures();
 
         HandleInput1();
 
@@ -168,7 +167,7 @@ public class QuickAccessWindow : EditorWindow
         }
     }
 
-    bool initialized;
+    static bool initialized;
     void InitializeStyles()
     {
         if (initialized) return;
@@ -180,6 +179,11 @@ public class QuickAccessWindow : EditorWindow
         rowOdd = new(cachedStyle);
         rowEven = new(cachedStyle);
         selectedStyle = new(cachedStyle);
+        CreateBackgroundTextures();
+    }
+
+    void CreateBackgroundTextures()
+    {
         rowOdd.normal.background = MakeTex(1, 1, new Color(0.21f, 0.21f, 0.21f));
         rowEven.normal.background = MakeTex(1, 1, new Color(0.235f, 0.235f, 0.235f));
         selectedStyle.normal.background = MakeTex(1, 1, new Color(0.25f, 0.25f, 0.535f));
