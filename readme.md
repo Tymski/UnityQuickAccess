@@ -2,8 +2,8 @@
 
 ## Keyboard shortcuts
 
-- [**Ctrl**]+[**q**] - Open the quick access window or Focus the query field  
-- [**Ctrl**]+[**e**] - Focus the path field  
+- [**Ctrl**]+[**Q**] - Open the quick access window or Focus the query field  
+- [**Ctrl**]+[**E**] - Focus the path field  
   
 - [**Enter**] - Select the selected result in Assets Window.  
 - [**Ctrl**]+[**Enter**] - Open the selected result.  
