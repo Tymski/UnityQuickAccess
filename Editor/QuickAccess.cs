@@ -16,15 +16,15 @@ public class QuickAccessWindow : EditorWindow
     static GUIStyle rowOdd;
     static GUIStyle selectedStyle;
 
+    static bool focusQuery;
     string path = "";
     string query = "";
     string queryOld = "";
-    Vector2 scrollPosition;
     string prevQuery = "";
     string prevPath = "";
-    static bool focusQuery;
     int row = 0;
     int selected = 0;
+    Vector2 scrollPosition;
     List<string> sortedAssets = new();
 
     Dictionary<Type, string> typeColors = new()
@@ -40,8 +40,7 @@ public class QuickAccessWindow : EditorWindow
         QuickAccessWindow window = GetWindow<QuickAccessWindow>("QuickAccess");
         window.Focus();
         focusQuery = true;
-        queryKey = "unity_" + Application.productName + "_com.tymski.quickaccess.query";
-        pathKey = "unity_" + Application.productName + "_com.tymski.quickaccess.path";
+
     }
 
     Texture2D MakeTex(int width, int height, Color col)
@@ -60,7 +59,7 @@ public class QuickAccessWindow : EditorWindow
 
     void OnGUI()
     {
-        InitializeStyles();
+        Initialize();
         if (rowOdd.normal.background == null) CreateBackgroundTextures();
 
         HandleInput1();
@@ -173,11 +172,11 @@ public class QuickAccessWindow : EditorWindow
     }
 
     static bool initialized;
-    void InitializeStyles()
+    void Initialize()
     {
         if (initialized) return;
-
         initialized = true;
+
         cachedStyle = new GUIStyle(GUI.skin.label);
         cachedStyle.alignment = TextAnchor.MiddleLeft;
         cachedStyle.richText = true;
@@ -185,6 +184,7 @@ public class QuickAccessWindow : EditorWindow
         rowEven = new(cachedStyle);
         selectedStyle = new(cachedStyle);
         CreateBackgroundTextures();
+        Load();
     }
 
     void CreateBackgroundTextures()
@@ -279,6 +279,7 @@ public class QuickAccessWindow : EditorWindow
         sortedAssets = sortedAssets.Take(100).ToList();
         scrollPosition = Vector2.zero;
 
+
         string What(string path)
         {
             if (query.Contains("/")) return path;
@@ -296,6 +297,7 @@ public class QuickAccessWindow : EditorWindow
             }
             return true;
         }
+
     }
 
     public static float MyDistance(string s1, string s2)
@@ -336,16 +338,34 @@ public class QuickAccessWindow : EditorWindow
         return distance;
     }
 
+    void OnEnable()
+    {
+        Load();
+    }
+
     void OnDisable()
     {
+        Save();
+    }
+
+    void Save()
+    {
+        SetKeys();
         EditorPrefs.SetString(pathKey, path);
         EditorPrefs.SetString(queryKey, query);
     }
 
-    void OnEnable()
+    void Load()
     {
+        SetKeys();
         path = EditorPrefs.GetString(pathKey, "");
         query = EditorPrefs.GetString(queryKey, "");
+    }
+
+    void SetKeys()
+    {
+        queryKey = "unity_" + Application.productName + "_com.tymski.quickaccess.query";
+        pathKey = "unity_" + Application.productName + "_com.tymski.quickaccess.path";
     }
 }
 
