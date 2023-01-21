@@ -6,6 +6,8 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 
+using Object = UnityEngine.Object;
+
 public class QuickAccessWindow : EditorWindow
 {
     static string queryKey = "";
@@ -34,7 +36,7 @@ public class QuickAccessWindow : EditorWindow
         { typeof(DefaultAsset), "#F3DA4A" }
     };
 
-    [MenuItem("Tools/QuickAccess %q")]
+    [MenuItem("Tools/Tymski/QuickAccess %q")]
     public static void ShowWindow()
     {
         QuickAccessWindow window = GetWindow<QuickAccessWindow>("QuickAccess");
@@ -99,7 +101,7 @@ public class QuickAccessWindow : EditorWindow
     {
         Texture2D icon = AssetDatabase.GetCachedIcon(asset) as Texture2D;
 
-        UnityEngine.Object assetObject = AssetDatabase.LoadAssetAtPath(asset, typeof(UnityEngine.Object));
+        Object assetObject = AssetDatabase.LoadAssetAtPath(asset, typeof(Object));
         if (assetObject == null) return;
         GUIStyle style = row++ % 2 == 0 ? rowEven : rowOdd;
         if (rowIndex == selected) style = selectedStyle;
@@ -107,20 +109,30 @@ public class QuickAccessWindow : EditorWindow
         GUILayout.BeginHorizontal();
         if (GUILayout.Button(icon, GUIStyle.none, GUILayout.Width(rowHeight), GUILayout.Height(rowHeight)))
         {
-            Selection.activeObject = assetObject;
+            PerformAction(assetObject, row);
         }
         GUILayout.Space(-5);
         if (GUILayout.Button(ColorNameToType(asset, assetObject), style, GUILayout.Height(rowHeight), GUILayout.Width(280)))
         {
-            Debug.Log(assetObject.GetType());
-            Selection.activeObject = assetObject;
+            PerformAction(assetObject, row);
         }
         GUILayout.Space(-5);
         if (GUILayout.Button(ColorFileNameWithPath(asset), style, GUILayout.Height(rowHeight)))
         {
-            Selection.activeObject = assetObject;
+            PerformAction(assetObject, row);
         }
         GUILayout.EndHorizontal();
+    }
+
+    public void PerformAction(Object asset, int rowIndex)
+    {
+        if (Event.current.control || Event.current.shift) Close();
+        Selection.activeObject = asset;
+        if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
+        else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
+        else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[selected]);
+        selected = rowIndex - 1;
+        Event.current.Use();
     }
 
     void HandleInput1()
@@ -141,7 +153,7 @@ public class QuickAccessWindow : EditorWindow
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return)
         {
             Close();
-            UnityEngine.Object asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sortedAssets[selected]);
+            Object asset = AssetDatabase.LoadAssetAtPath<Object>(sortedAssets[selected]);
             if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
             else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
             else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[selected]);
