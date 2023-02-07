@@ -154,9 +154,19 @@ public class QuickAccessWindow : EditorWindow
         {
             Close();
             Object asset = AssetDatabase.LoadAssetAtPath<Object>(sortedAssets[selected]);
-            if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
-            else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
-            else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[selected]);
+            if (Event.current.control && !Event.current.shift)
+            {
+                AssetDatabase.OpenAsset(asset);
+            }
+            else if (!Event.current.control && !Event.current.shift)
+            {
+                EditorUtility.FocusProjectWindow();
+                Selection.SetActiveObjectWithContext(asset, asset);
+            }
+            else if (Event.current.control && Event.current.shift)
+            {
+                EditorUtility.RevealInFinder(sortedAssets[selected]);
+            }
         }
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.W && Event.current.control)
         {
