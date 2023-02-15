@@ -2,7 +2,7 @@
     "name": "com.tymski.quickaccess",
     "displayName": "Quick Access",
     "description": "Simple quick access menu [CTRL]+[Q]",
-    "version": "0.7.1",
+    "version": "0.7.2",
     "unity": "2017.1",
     "repository": {
         "type": "git",

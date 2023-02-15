@@ -12,6 +12,7 @@ public class QuickAccessWindow : EditorWindow
 {
     static string queryKey = "";
     static string pathKey = "";
+    static string selectedKey = "";
 
     static GUIStyle cachedStyle;
     static GUIStyle rowEven;
@@ -22,8 +23,8 @@ public class QuickAccessWindow : EditorWindow
     string path = "";
     string query = "";
     string queryOld = "";
-    string prevQuery = "";
-    string prevPath = "";
+    string previousFrameQuery = "";
+    string previousFramePath = "";
     int row = 0;
     int selected = 0;
     Vector2 scrollPosition;
@@ -42,20 +43,15 @@ public class QuickAccessWindow : EditorWindow
         QuickAccessWindow window = GetWindow<QuickAccessWindow>("QuickAccess");
         window.Focus();
         focusQuery = true;
-
     }
 
     Texture2D MakeTex(int width, int height, Color col)
     {
         Color[] pix = new Color[width * height];
-
-        for (int i = 0; i < pix.Length; i++)
-            pix[i] = col;
-
+        for (int i = 0; i < pix.Length; i++) pix[i] = col;
         Texture2D result = new(width, height);
         result.SetPixels(pix);
         result.Apply();
-
         return result;
     }
 
@@ -73,9 +69,7 @@ public class QuickAccessWindow : EditorWindow
         query = EditorGUILayout.TextField("Query", query);
         EditorGUIUtility.labelWidth = 0;
 
-
         float searchResultHeight = 18;
-        float totalHeight = searchResultHeight * sortedAssets.Count;
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.ExpandHeight(true));
         row = 0;
         for (int i = 0; i < sortedAssets.Count; i++)
@@ -95,7 +89,6 @@ public class QuickAccessWindow : EditorWindow
             focusQuery = false;
         }
     }
-
 
     void DisplaySearchResultRow(string asset, int rowIndex, float rowHeight)
     {
@@ -127,7 +120,8 @@ public class QuickAccessWindow : EditorWindow
     public void PerformAction(Object asset, int rowIndex)
     {
         if (Event.current.control || Event.current.shift) Close();
-        Selection.activeObject = asset;
+        EditorUtility.FocusProjectWindow();
+        Selection.SetActiveObjectWithContext(asset, asset);
         if (Event.current.control && !Event.current.shift) AssetDatabase.OpenAsset(asset);
         else if (!Event.current.control && !Event.current.shift) Selection.activeObject = asset;
         else if (Event.current.control && Event.current.shift) EditorUtility.RevealInFinder(sortedAssets[selected]);
@@ -146,7 +140,7 @@ public class QuickAccessWindow : EditorWindow
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.UpArrow)
         {
             selected--;
-            selected = Mathf.Max(selected, 0);
+            selected = Mathf.Clamp(selected, 0, sortedAssets.Count);
             Event.current.Use();
             Repaint();
         }
@@ -199,7 +193,7 @@ public class QuickAccessWindow : EditorWindow
         if (initialized) return;
         initialized = true;
 
-        cachedStyle = new GUIStyle(GUI.skin.label);
+        cachedStyle = new(GUI.skin.label);
         cachedStyle.alignment = TextAnchor.MiddleLeft;
         cachedStyle.richText = true;
         rowOdd = new(cachedStyle);
@@ -216,18 +210,17 @@ public class QuickAccessWindow : EditorWindow
         selectedStyle.normal.background = MakeTex(1, 1, new Color(0.25f, 0.25f, 0.535f));
     }
 
-
     void Update()
     {
-        if (query != prevQuery)
+        if (query != previousFrameQuery)
         {
-            prevQuery = query;
             Search();
+            previousFrameQuery = query;
         }
-        if (path != prevPath)
+        if (path != previousFramePath)
         {
-            prevPath = path;
             Search();
+            previousFramePath = path;
         }
     }
 
@@ -268,7 +261,7 @@ public class QuickAccessWindow : EditorWindow
 
             if (char.ToLower(fileName[i]) == char.ToLower(search[searchIndex]))
             {
-                sb.Append("<b>" + fileName[i] + "</b>");
+                sb.Append("<b>").Append(fileName[i]).Append("</b>");
                 searchIndex++;
             }
             else
@@ -284,7 +277,7 @@ public class QuickAccessWindow : EditorWindow
     int count = 0;
     void Search()
     {
-        selected = 0;
+        if (queryOld.CompareTo(query) != 0 || previousFramePath.CompareTo(path) != 0) selected = 0;
         queryOld = query;
         string[] guids = AssetDatabase.FindAssets("");
         string[] assets = new string[guids.Length];
@@ -294,13 +287,11 @@ public class QuickAccessWindow : EditorWindow
             string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
             if (!Contains(assetPath, path)) continue;
             assets[i] = assetPath;
-
         }
 
         sortedAssets = assets.Where(s => s != null).OrderBy(s => MyDistance(query, What(s))).ToList();
         sortedAssets = sortedAssets.Take(100).ToList();
         scrollPosition = Vector2.zero;
-
 
         string What(string path)
         {
@@ -319,7 +310,6 @@ public class QuickAccessWindow : EditorWindow
             }
             return true;
         }
-
     }
 
     public static float MyDistance(string s1, string s2)
@@ -363,6 +353,7 @@ public class QuickAccessWindow : EditorWindow
     void OnEnable()
     {
         Load();
+        Search();
     }
 
     void OnDisable()
@@ -375,19 +366,21 @@ public class QuickAccessWindow : EditorWindow
         SetKeys();
         EditorPrefs.SetString(pathKey, path);
         EditorPrefs.SetString(queryKey, query);
+        EditorPrefs.SetInt(selectedKey, selected);
     }
 
     void Load()
     {
         SetKeys();
-        path = EditorPrefs.GetString(pathKey, "");
-        query = EditorPrefs.GetString(queryKey, "");
+        path = previousFramePath = EditorPrefs.GetString(pathKey, "");
+        query = queryOld = EditorPrefs.GetString(queryKey, "");
+        selected = EditorPrefs.GetInt(selectedKey, selected);
     }
 
     void SetKeys()
     {
         queryKey = "unity_" + Application.productName + "_com.tymski.quickaccess.query";
         pathKey = "unity_" + Application.productName + "_com.tymski.quickaccess.path";
+        selectedKey = "unity_" + Application.productName + "_com.tymski.quickaccess.selected";
     }
 }
-
