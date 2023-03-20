@@ -289,7 +289,8 @@ public class QuickAccessWindow : EditorWindow
             assets[i] = assetPath;
         }
 
-        sortedAssets = assets.Where(s => s != null).OrderBy(s => MyDistance(query, What(s))).ToList();
+        //sortedAssets = assets.Where(s => s != null).OrderBy(s => MyDistance(query, What(s))).ToList();
+        sortedAssets = assets.Where(s => s != null).OrderBy(s => SpacedDistance(query, What(s))).ToList();
         sortedAssets = sortedAssets.Take(100).ToList();
         scrollPosition = Vector2.zero;
 
@@ -310,6 +311,18 @@ public class QuickAccessWindow : EditorWindow
             }
             return true;
         }
+    }
+
+    public static float SpacedDistance(string s1, string s2)
+    {
+        var split = s1.Split(' ');
+        float distance = 0;
+        foreach (var s in split)
+        {
+            distance += MyDistance(s, s2);
+        }
+        distance += MyDistance(s1, s2) / 10f;
+        return distance;
     }
 
     public static float MyDistance(string s1, string s2)
